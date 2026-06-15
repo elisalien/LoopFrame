@@ -42,3 +42,4 @@ Ouvrez simplement `index.html` dans un navigateur moderne. Aucune étape de buil
 ## 📄 Licence
 
 Distribué sous licence MIT — voir [LICENSE](LICENSE).
+"# LoopFrame" 
