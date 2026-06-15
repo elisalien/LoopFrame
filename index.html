@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Canvas Preview · Spotify</title>
+<style>
+  :root{
+    --bg:#0a0a0b;
+    --panel:#161618;
+    --panel-2:#1f1f22;
+    --line:#2a2a2e;
+    --line-soft:#222226;
+    --txt:#f4f4f5;
+    --txt-dim:#a1a1aa;
+    --txt-faint:#6b6b73;
+    --accent:#1ed760;
+    --accent-dim:#15833c;
+    --crop:#ff4d6d;
+    --safe:#1ed760;
+    --radius:10px;
+    --mono:"SFMono-Regular",ui-monospace,"Roboto Mono",Menlo,Consolas,monospace;
+    --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Helvetica,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    background:
+      radial-gradient(1200px 600px at 85% -10%, #15281c 0%, transparent 55%),
+      var(--bg);
+    color:var(--txt);font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;line-height:1.45;
+  }
+  ::selection{background:var(--accent);color:#04130a}
+
+  header{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;
+    padding:18px 22px 14px;border-bottom:1px solid var(--line)}
+  header h1{font-size:15px;font-weight:700;letter-spacing:-.01em;margin:0;
+    display:flex;align-items:center;gap:9px}
+  header h1 .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);
+    box-shadow:0 0 12px var(--accent)}
+  header .sub{font-size:12px;color:var(--txt-faint);font-family:var(--mono)}
+  header .chips{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+  .chip{font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;color:var(--txt-dim);
+    background:var(--panel-2);border:1px solid var(--line);border-radius:999px;padding:3px 9px}
+
+  .layout{display:grid;grid-template-columns:330px minmax(0,1fr);min-height:calc(100vh - 56px)}
+  @media (max-width:880px){.layout{grid-template-columns:1fr}}
+
+  /* ---------- Controls ---------- */
+  .controls{border-right:1px solid var(--line);padding:18px 18px 60px;
+    overflow-y:auto;max-height:calc(100vh - 56px)}
+  @media (max-width:880px){.controls{max-height:none;border-right:none;border-bottom:1px solid var(--line)}}
+  .controls::-webkit-scrollbar{width:9px}
+  .controls::-webkit-scrollbar-thumb{background:var(--line);border-radius:9px}
+
+  .group{margin-bottom:22px}
+  .group > .label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--txt-faint);margin:0 0 10px}
+  .field{margin-bottom:11px}
+  .field:last-child{margin-bottom:0}
+  .field > span{display:block;font-size:11.5px;color:var(--txt-dim);margin-bottom:5px}
+
+  input[type=text], select{width:100%;background:var(--panel);color:var(--txt);
+    border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:13px;
+    font-family:var(--sans);transition:border-color .15s, box-shadow .15s}
+  input[type=text]:focus, select:focus{outline:none;border-color:var(--accent-dim);
+    box-shadow:0 0 0 3px rgba(30,215,96,.12)}
+  select{appearance:none;cursor:pointer;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a1a1aa' stroke-width='2.5'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 10px center;padding-right:30px}
+
+  .upload{display:flex;align-items:center;gap:10px;background:var(--panel);
+    border:1px dashed var(--line);border-radius:8px;padding:10px;cursor:pointer;
+    transition:border-color .15s,background .15s}
+  .upload:hover{border-color:var(--accent-dim);background:#141414}
+  .upload svg{flex:0 0 auto;color:var(--txt-dim)}
+  .upload .u-txt{font-size:12px;color:var(--txt-dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .upload.has-file{border-style:solid;border-color:var(--accent-dim)}
+  .upload.has-file .u-txt{color:var(--txt)}
+  input[type=file]{display:none}
+
+  input[type=range]{width:100%;-webkit-appearance:none;appearance:none;height:4px;border-radius:4px;
+    background:var(--line);outline:none;margin:8px 0 2px}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;
+    background:var(--txt);cursor:pointer;border:3px solid var(--bg);box-shadow:0 0 0 1px var(--line)}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--txt);
+    cursor:pointer;border:3px solid var(--bg)}
+
+  .toggles{display:grid;gap:2px}
+  .tg{display:flex;align-items:center;justify-content:space-between;gap:10px;
+    padding:7px 9px;border-radius:7px;cursor:pointer;transition:background .12s}
+  .tg:hover{background:var(--panel)}
+  .tg .tg-lbl{font-size:12.5px;color:var(--txt-dim)}
+  .tg input{display:none}
+  .switch{width:34px;height:19px;border-radius:999px;background:var(--line);position:relative;
+    flex:0 0 auto;transition:background .18s}
+  .switch::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;
+    background:#cfcfd4;transition:transform .18s,background .18s}
+  .tg input:checked + .switch{background:var(--accent-dim)}
+  .tg input:checked + .switch::after{transform:translateX(15px);background:#fff}
+  .tg input:checked ~ .tg-lbl{color:var(--txt)}
+
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;border:none;
+    border-radius:8px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);
+    transition:transform .08s, filter .15s, background .15s}
+  .btn:active{transform:translateY(1px)}
+  .btn-accent{background:var(--accent);color:#04130a}
+  .btn-accent:hover{filter:brightness(1.08)}
+  .btn-ghost{background:var(--panel-2);color:var(--txt);border:1px solid var(--line)}
+  .btn-ghost:hover{background:#26262a}
+  .btn-row{display:grid;gap:8px}
+
+  .readout{font-family:var(--mono);font-size:11px;line-height:1.6;color:var(--txt-dim);
+    background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:10px 11px;margin-top:8px}
+  .readout b{color:var(--txt)}
+  .readout .hl-crop{color:var(--crop)}
+  .readout .hl-safe{color:var(--safe)}
+
+  /* ---------- Stage ---------- */
+  .stage{padding:22px;display:flex;flex-direction:column;align-items:center;gap:16px;min-width:0}
+  .tabs{display:flex;gap:4px;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:4px}
+  .tab{border:none;background:transparent;color:var(--txt-dim);font-family:var(--sans);font-size:12.5px;
+    font-weight:600;padding:8px 16px;border-radius:7px;cursor:pointer;transition:background .14s,color .14s}
+  .tab.active{background:var(--panel-2);color:var(--txt)}
+  .tab:hover:not(.active){color:var(--txt)}
+
+  .view{display:none;flex-direction:column;align-items:center;gap:14px;width:100%}
+  .view.active{display:flex}
+
+  /* ----- Phone preview ----- */
+  .phone{position:relative;container-type:size;
+    aspect-ratio:var(--ar, 0.4613);height:min(74vh, 720px);
+    background:#000;border-radius:30px;overflow:hidden;
+    box-shadow:0 0 0 8px #18181b, 0 0 0 9px #2c2c30, 0 30px 70px -20px rgba(0,0,0,.8)}
+  .phone .vid{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;background:#000}
+  .phone .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;gap:10px;text-align:center;padding:24px;
+    background:linear-gradient(150deg,#3a1d52,#102a3a 60%,#0b1a12);color:#d9d9de}
+  .phone .placeholder.hide{display:none}
+  .phone .placeholder svg{opacity:.5}
+  .phone .placeholder p{font-size:13px;margin:0;color:#cfcfd4}
+  .phone .placeholder small{font-family:var(--mono);font-size:10.5px;color:#9a9aa3}
+
+  /* Spotify Now Playing overlay — base font scales with phone height */
+  .ui{position:absolute;inset:0;pointer-events:none;color:#fff;font-family:var(--sans);font-size:2.7cqh}
+  .scrim-top{position:absolute;left:0;right:0;top:0;height:22%;
+    background:linear-gradient(to bottom, rgba(0,0,0,.55), transparent)}
+  .scrim-bot{position:absolute;left:0;right:0;bottom:0;height:48%;
+    background:linear-gradient(to top, rgba(0,0,0,.78) 8%, rgba(0,0,0,.35) 45%, transparent)}
+
+  .statusbar{position:absolute;top:0;left:0;right:0;height:4.5%;display:flex;align-items:center;
+    justify-content:space-between;padding:0 7%;font-size:.62em}
+  .statusbar .time{font-weight:600;font-size:1.05em}
+  .statusbar .icons{display:flex;gap:4px;align-items:center}
+
+  .topbar{position:absolute;top:5.5%;left:0;right:0;height:6%;display:flex;align-items:center;
+    justify-content:space-between;padding:0 5.5%}
+  .topbar .ctx{text-align:center;line-height:1.2;flex:1;min-width:0;padding:0 8px}
+  .topbar .ctx .k{font-size:.52em;letter-spacing:.08em;text-transform:uppercase;color:#dcdcdc;opacity:.85}
+  .topbar .ctx .v{font-size:.66em;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .meta{position:absolute;left:5.5%;right:5.5%;bottom:30%;display:flex;align-items:flex-end;
+    justify-content:space-between;gap:10px}
+  .meta .txt{min-width:0}
+  .meta .title{font-size:1.5em;font-weight:800;letter-spacing:-.02em;line-height:1.12;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin:0}
+  .meta .artist{font-size:.92em;color:#d6d6d6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .meta .add{flex:0 0 auto}
+
+  .progress{position:absolute;left:5.5%;right:5.5%;bottom:24.5%}
+  .progress .bar{height:3px;border-radius:3px;background:rgba(255,255,255,.3);overflow:hidden}
+  .progress .bar > i{display:block;height:100%;width:38%;background:#fff;border-radius:3px}
+  .progress .t{display:flex;justify-content:space-between;font-size:.55em;color:#cfcfcf;margin-top:5px;
+    font-variant-numeric:tabular-nums}
+
+  .transport{position:absolute;left:0;right:0;bottom:13%;display:flex;align-items:center;
+    justify-content:space-between;padding:0 8%}
+  .transport .play{width:17%;aspect-ratio:1;background:#fff;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;color:#000}
+  .transport .play svg{width:46%;height:46%}
+  .transport .ic{opacity:.95;display:flex;align-items:center}
+
+  .bottombar{position:absolute;left:0;right:0;bottom:5.5%;display:flex;align-items:center;
+    justify-content:space-between;padding:0 7%}
+  .bottombar .ic{opacity:.92}
+
+  .homebar{position:absolute;bottom:1.3%;left:50%;transform:translateX(-50%);
+    width:32%;height:4px;border-radius:4px;background:rgba(255,255,255,.55)}
+
+  /* safe-zone guide on the live phone (worst-case, mapped onto this screen) */
+  .safeguide{position:absolute;top:12%;bottom:40%;border:1.5px dashed var(--safe);border-radius:4px;
+    pointer-events:none;display:flex;align-items:flex-start;justify-content:center;font-size:2.7cqh}
+  .safeguide .tag{font-family:var(--mono);font-size:.5em;background:var(--safe);color:#04130a;
+    padding:1px 5px;border-radius:0 0 4px 4px;font-weight:700;letter-spacing:.04em;white-space:nowrap}
+
+  .phone[data-scrim="0"] .scrim-top,
+  .phone[data-scrim="0"] .scrim-bot{display:none}
+  .phone[data-top="0"] .statusbar,
+  .phone[data-top="0"] .topbar{display:none}
+  .phone[data-meta="0"] .meta{display:none}
+  .phone[data-prog="0"] .progress{display:none}
+  .phone[data-trans="0"] .transport{display:none}
+  .phone[data-bottom="0"] .bottombar,
+  .phone[data-bottom="0"] .homebar{display:none}
+  .phone[data-safe="0"] .safeguide{display:none}
+
+  .legend{display:flex;gap:18px;flex-wrap:wrap;justify-content:center;font-size:11.5px;color:var(--txt-dim)}
+  .legend i{display:inline-block;width:11px;height:11px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+  .legend .l-safe{background:var(--safe)}
+  .legend .l-crop{background:var(--crop)}
+  .legend .l-ui{background:rgba(255,255,255,.4)}
+
+  /* Mini player */
+  .mini{width:min(360px,100%);background:#181818;border:1px solid var(--line);border-radius:12px;
+    padding:10px;display:flex;align-items:center;gap:11px}
+  .mini .art{width:42px;height:42px;border-radius:6px;background:linear-gradient(135deg,#5b2a86,#1e6e4a);
+    object-fit:cover;flex:0 0 auto}
+  .mini .mtxt{min-width:0;flex:1}
+  .mini .mt{font-size:13px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini .ma{font-size:11.5px;color:var(--txt-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .mini .mp{color:var(--txt);flex:0 0 auto;display:flex;gap:14px;align-items:center}
+  .mini-note{font-size:11px;color:var(--txt-faint);text-align:center;max-width:360px;margin-top:-4px}
+
+  /* Frame map */
+  .map-wrap{position:relative;height:min(72vh,700px);aspect-ratio:1080/1920;border-radius:6px;overflow:hidden;
+    background:#000;box-shadow:0 20px 60px -25px rgba(0,0,0,.8)}
+  .map-wrap .vid{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;background:#0d0d0f}
+  .map-wrap .ph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#6b6b73;font-family:var(--mono);font-size:11px;text-align:center;padding:20px}
+  .map-wrap svg{position:absolute;inset:0;width:100%;height:100%}
+  .map-note{font-size:11.5px;color:var(--txt-dim);max-width:460px;text-align:center}
+
+  /* ---------- Apple Music ---------- */
+  .seg{display:inline-flex;background:var(--panel);border:1px solid var(--line);border-radius:9px;padding:3px;gap:3px}
+  .seg button{border:none;background:transparent;color:var(--txt-dim);font-family:var(--sans);font-size:12px;
+    font-weight:600;padding:7px 15px;border-radius:6px;cursor:pointer;transition:background .14s,color .14s}
+  .seg button.active{background:var(--panel-2);color:var(--txt)}
+  .apple-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+
+  .aframe{display:none}
+  .aframe.show{display:flex}
+
+  .aphone{position:relative;container-type:size;aspect-ratio:0.4613;height:min(74vh,720px);
+    background:#15151a;border-radius:30px;overflow:hidden;
+    box-shadow:0 0 0 8px #18181b,0 0 0 9px #2c2c30,0 30px 70px -20px rgba(0,0,0,.8)}
+  .aphone .bg{position:absolute;inset:-8%;width:116%;height:116%;object-fit:cover;
+    filter:blur(40px) saturate(1.5) brightness(.5)}
+  .aphone .scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.2),rgba(0,0,0,.55))}
+  .aui{position:absolute;inset:0;pointer-events:none;color:#fff;font-size:2.7cqh;font-family:var(--sans)}
+  .aui .grabber{position:absolute;top:1.5%;left:50%;transform:translateX(-50%);width:11%;height:5px;
+    border-radius:5px;background:rgba(255,255,255,.45)}
+  .acard{position:absolute;left:6%;right:6%;top:7%;aspect-ratio:3/4;border-radius:14px;overflow:hidden;
+    box-shadow:0 22px 55px -14px rgba(0,0,0,.75)}
+  .acard .v,.acard .aph{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#26262c}
+  .acard .aph{display:flex;align-items:center;justify-content:center;color:#8a8a93;font-family:var(--mono);
+    font-size:.62em;text-align:center;padding:10%}
+  .ameta{position:absolute;left:7%;right:7%;top:64.5%;display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+  .ameta .att{min-width:0}
+  .ameta .at-t{font-size:1.35em;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ameta .at-a{font-size:.96em;color:#fb5a6f;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+  .ameta .amore{flex:0 0 auto;width:1.9em;height:1.9em;border-radius:50%;background:rgba(255,255,255,.16);
+    display:flex;align-items:center;justify-content:center}
+  .ascrub{position:absolute;left:7%;right:7%;top:75.5%}
+  .ascrub .ln{height:5px;border-radius:5px;background:rgba(255,255,255,.26);position:relative}
+  .ascrub .ln>i{position:absolute;left:0;top:0;height:100%;width:34%;background:rgba(255,255,255,.85);border-radius:5px}
+  .ascrub .ln>b{position:absolute;left:34%;top:50%;width:11px;height:11px;border-radius:50%;background:#fff;transform:translate(-50%,-50%)}
+  .ascrub .t{display:flex;justify-content:space-between;font-size:.55em;color:rgba(255,255,255,.7);margin-top:6px;font-variant-numeric:tabular-nums}
+  .atrans{position:absolute;left:0;right:0;top:81.5%;display:flex;align-items:center;justify-content:center;gap:13%;color:#fff}
+  .atrans .pp{transform:scale(1.3)}
+  .avol{position:absolute;left:7%;right:7%;top:89%;display:flex;align-items:center;gap:9px;color:rgba(255,255,255,.8)}
+  .avol .vl{flex:1;height:4px;border-radius:4px;background:rgba(255,255,255,.26);position:relative}
+  .avol .vl>i{position:absolute;left:0;height:100%;width:55%;background:rgba(255,255,255,.8);border-radius:4px}
+  .abottom{position:absolute;left:0;right:0;top:94.5%;display:flex;align-items:center;justify-content:center;gap:16%;color:rgba(255,255,255,.82)}
+  .ahome{position:absolute;bottom:1.3%;left:50%;transform:translateX(-50%);width:32%;height:4px;border-radius:4px;background:rgba(255,255,255,.55)}
+
+  /* desktop / iPad / TV — 1:1 */
+  .adesk{position:relative;container-type:size;aspect-ratio:16/10;width:min(94%,760px);
+    border-radius:14px;overflow:hidden;background:#111;box-shadow:0 24px 60px -24px rgba(0,0,0,.8)}
+  .adesk .bg{position:absolute;inset:-8%;width:116%;height:116%;object-fit:cover;filter:blur(48px) saturate(1.5) brightness(.45)}
+  .adesk .scrim{position:absolute;inset:0;background:linear-gradient(to bottom,rgba(0,0,0,.3),rgba(0,0,0,.6))}
+  .adesk .wm{position:absolute;top:6%;left:5%;font-size:3.4cqh;font-weight:700;color:rgba(255,255,255,.9);letter-spacing:-.02em}
+  .adesk .sq{position:absolute;top:13%;left:50%;transform:translateX(-50%);aspect-ratio:1;height:55%;
+    border-radius:12px;overflow:hidden;box-shadow:0 22px 55px -14px rgba(0,0,0,.7)}
+  .adesk .sq .v,.adesk .sq .aph{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#26262c}
+  .adesk .sq .aph{display:flex;align-items:center;justify-content:center;color:#8a8a93;font-family:var(--mono);font-size:3cqh;text-align:center;padding:8%}
+  .adesk .dt{position:absolute;left:0;right:0;top:72.5%;text-align:center;color:#fff;font-size:4.4cqh;font-weight:700}
+  .adesk .da{position:absolute;left:0;right:0;top:80.5%;text-align:center;color:rgba(255,255,255,.72);font-size:3.4cqh}
+  .adesk .dctrl{position:absolute;left:0;right:0;top:88.5%;display:flex;align-items:center;justify-content:center;gap:7%;color:#fff}
+
+  .apple-note{font-size:11.5px;color:var(--txt-dim);max-width:480px;text-align:center}
+
+  footer{padding:14px 22px 26px;border-top:1px solid var(--line);color:var(--txt-faint);font-size:11px;
+    display:flex;gap:8px;flex-wrap:wrap;align-items:center;justify-content:center;text-align:center}
+  footer code{font-family:var(--mono);color:var(--txt-dim)}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span class="dot"></span>Canvas Preview</h1>
+  <span class="sub">aperçu pixel-perfect · Spotify</span>
+  <div class="chips">
+    <span class="chip">1080 × 1920</span>
+    <span class="chip">9:16</span>
+    <span class="chip">3–8 s · loop</span>
+    <span class="chip">MP4 / WebM</span>
+    <span class="chip">&lt; 50 Mo</span>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ================= CONTROLS ================= -->
+  <aside class="controls">
+
+    <div class="group">
+      <span class="label">Média</span>
+      <label class="upload" id="vidUp">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+        <span class="u-txt" id="vidName">Charger une vidéo (MP4/WebM)</span>
+        <input type="file" id="vidInput" accept="video/mp4,video/webm,video/*">
+      </label>
+      <label class="upload" style="margin-top:8px" id="artUp">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
+        <span class="u-txt" id="artName">Pochette d'album (optionnel)</span>
+        <input type="file" id="artInput" accept="image/*">
+      </label>
+    </div>
+
+    <div class="group">
+      <span class="label">Textes</span>
+      <div class="field"><span>Titre</span><input type="text" id="titleIn" value="Nom du morceau" maxlength="60"></div>
+      <div class="field"><span>Artiste</span><input type="text" id="artistIn" value="Elisalien" maxlength="60"></div>
+      <div class="field"><span>Contexte (haut de l'écran)</span><input type="text" id="ctxIn" value="À l'écoute · Single" maxlength="50"></div>
+    </div>
+
+    <div class="group">
+      <span class="label">Appareil</span>
+      <div class="field">
+        <select id="deviceSel">
+          <option value="0.5625">Référence 9:16 — 1080×1920 (aucun rognage)</option>
+          <option value="0.4613" selected>iPhone 15 / 16 — 19.5:9</option>
+          <option value="0.4615">Samsung Galaxy S24 — 19.5:9</option>
+          <option value="0.45">Google Pixel 8 — 20:9</option>
+          <option value="0.4427">OnePlus / Xiaomi — 20.3:9</option>
+          <option value="0.4282">Sony Xperia 1 — 21:9 (cas extrême)</option>
+          <option value="custom">Personnalisé (curseur)</option>
+        </select>
+      </div>
+      <div class="field">
+        <span>Ratio d'écran : <b id="ratioLbl" style="color:var(--txt)">19.5:9</b></span>
+        <input type="range" id="arRange" min="0.4282" max="0.5625" step="0.0005" value="0.4613">
+      </div>
+      <div class="readout" id="cropOut"></div>
+    </div>
+
+    <div class="group">
+      <span class="label">Affichage de l'UI</span>
+      <div class="toggles">
+        <label class="tg"><input type="checkbox" id="t-scrim" checked><span class="switch"></span><span class="tg-lbl">Dégradés de lisibilité</span></label>
+        <label class="tg"><input type="checkbox" id="t-top" checked><span class="switch"></span><span class="tg-lbl">Barre du haut + statut</span></label>
+        <label class="tg"><input type="checkbox" id="t-meta" checked><span class="switch"></span><span class="tg-lbl">Titre + artiste + like</span></label>
+        <label class="tg"><input type="checkbox" id="t-prog" checked><span class="switch"></span><span class="tg-lbl">Barre de progression</span></label>
+        <label class="tg"><input type="checkbox" id="t-trans" checked><span class="switch"></span><span class="tg-lbl">Boutons de lecture</span></label>
+        <label class="tg"><input type="checkbox" id="t-bottom" checked><span class="switch"></span><span class="tg-lbl">Barre du bas (partage)</span></label>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Guides</span>
+      <div class="toggles">
+        <label class="tg"><input type="checkbox" id="t-safe"><span class="switch"></span><span class="tg-lbl">Zone sûre (texte/logo)</span></label>
+        <label class="tg"><input type="checkbox" id="t-crop" checked><span class="switch"></span><span class="tg-lbl">Rognage sur la carte</span></label>
+      </div>
+    </div>
+
+    <div class="group">
+      <span class="label">Lecture &amp; export</span>
+      <div class="btn-row">
+        <button class="btn btn-ghost" id="playBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" id="playIco"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+          <span id="playLbl">Pause</span>
+        </button>
+        <button class="btn btn-accent" id="exportBtn">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exporter l'image visible (PNG)
+        </button>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ================= STAGE ================= -->
+  <main class="stage">
+    <div class="tabs">
+      <button class="tab active" data-view="preview">Spotify · Aperçu</button>
+      <button class="tab" data-view="map">Spotify · Zones sûres</button>
+      <button class="tab" data-view="apple">Apple Music</button>
+    </div>
+
+    <!-- PREVIEW -->
+    <section class="view active" id="view-preview">
+      <div class="phone" id="phone" data-scrim="1" data-top="1" data-meta="1" data-prog="1" data-trans="1" data-bottom="1" data-safe="0">
+        <video class="vid" id="vid" loop muted playsinline></video>
+        <div class="placeholder" id="placeholder">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
+          <p>Charge ta vidéo Canvas</p>
+          <small>1080 × 1920 · 9:16 · boucle 3–8 s</small>
+        </div>
+
+        <div class="safeguide" id="safeGuide"><span class="tag">ZONE SÛRE</span></div>
+
+        <div class="ui">
+          <div class="scrim-top"></div>
+          <div class="scrim-bot"></div>
+
+          <div class="statusbar">
+            <span class="time">9:41</span>
+            <span class="icons">
+              <svg width="14" height="9" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="6" width="3" height="6" rx="1"/><rect x="5" y="3.5" width="3" height="8.5" rx="1"/><rect x="10" y="1.5" width="3" height="10.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+              <svg width="16" height="10" viewBox="0 0 20 12" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="1" y="2" width="15" height="8" rx="2"/><rect x="3" y="4" width="9" height="4" rx="1" fill="currentColor" stroke="none"/><rect x="17.5" y="4.5" width="1.6" height="3" rx="1" fill="currentColor" stroke="none"/></svg>
+            </span>
+          </div>
+
+          <div class="topbar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+            <div class="ctx">
+              <div class="k" id="ctxK">À L'ÉCOUTE</div>
+              <div class="v" id="ctxV">Single</div>
+            </div>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+          </div>
+
+          <div class="meta">
+            <div class="txt">
+              <p class="title" id="ttlOut">Nom du morceau</p>
+              <p class="artist" id="artOut">Elisalien</p>
+            </div>
+            <div class="add">
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9.2"/><path d="M12 8v8M8 12h8" stroke-linecap="round"/></svg>
+            </div>
+          </div>
+
+          <div class="progress">
+            <div class="bar"><i></i></div>
+            <div class="t"><span>1:14</span><span>-2:03</span></div>
+          </div>
+
+          <div class="transport">
+            <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M18 4l-4 4 4 4V4zM4 17.5a3 3 0 0 0 3 3h2v2l3-3-3-3v2H7a1 1 0 0 1-1-1V12H4v5.5zM20 6.5a3 3 0 0 0-3-3h-2v-2l-3 3 3 3v-2h2a1 1 0 0 1 1 1V12h2V6.5z"/></svg></span>
+            <span class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg></span>
+            <span class="play"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg></span>
+            <span class="ic"><svg width="26" height="26" viewBox="0 0 24 24" fill="currentColor"><path d="M18 6h-2v12h2zM6 6v12l8.5-6z"/></svg></span>
+            <span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M7 7h10v3l4-4-4-4v3H5v6h2V7zm10 10H7v-3l-4 4 4 4v-3h12v-6h-2v4z"/></svg></span>
+          </div>
+
+          <div class="bottombar">
+            <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg></span>
+            <span class="ic"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5 8.6 10.5"/></svg></span>
+          </div>
+
+          <div class="homebar"></div>
+        </div>
+      </div>
+
+      <div class="legend"><span><i class="l-safe"></i>Zone sûre (visible sur tous les appareils, libre d'UI)</span></div>
+
+      <div class="mini" id="mini">
+        <img class="art" id="miniArt" alt="">
+        <div class="mtxt">
+          <div class="mt" id="miniTtl">Nom du morceau</div>
+          <div class="ma" id="miniArt2">Elisalien</div>
+        </div>
+        <div class="mp">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9.2"/><path d="M12 8v8M8 12h8" stroke-linecap="round"/></svg>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        </div>
+      </div>
+      <div class="mini-note">Le mini-lecteur est le seul endroit où ta <b>pochette</b> s'affiche : sur l'écran plein, le Canvas la remplace.</div>
+    </section>
+
+    <!-- MAP -->
+    <section class="view" id="view-map">
+      <div class="map-wrap" id="mapWrap">
+        <video class="vid" id="mapVid" loop muted playsinline></video>
+        <div class="ph" id="mapPh">Charge ta vidéo pour voir le rognage sur ton cadre complet 1080×1920</div>
+        <svg viewBox="0 0 1080 1920" preserveAspectRatio="none" id="mapSvg">
+          <rect id="m-cropL" x="0" y="0" width="0" height="1920" fill="rgba(255,77,109,.32)"/>
+          <rect id="m-cropR" x="1080" y="0" width="0" height="1920" fill="rgba(255,77,109,.32)"/>
+          <line id="m-cropLine-l" x1="0" y1="0" x2="0" y2="1920" stroke="#ff4d6d" stroke-width="3"/>
+          <line id="m-cropLine-r" x1="1080" y1="0" x2="1080" y2="1920" stroke="#ff4d6d" stroke-width="3"/>
+          <g id="m-ui">
+            <rect x="0" y="0" width="1080" height="230" fill="rgba(255,255,255,.16)"/>
+            <rect x="0" y="1152" width="1080" height="768" fill="rgba(255,255,255,.16)"/>
+          </g>
+          <g id="m-safeGrp">
+            <rect id="m-safe" x="129" y="230" width="822" height="922" fill="none"
+                  stroke="#1ed760" stroke-width="3" stroke-dasharray="14 10"/>
+            <text id="m-safeTxt" x="540" y="710" fill="#1ed760" font-size="32" font-weight="700"
+                  text-anchor="middle" font-family="monospace">ZONE SÛRE</text>
+          </g>
+        </svg>
+      </div>
+      <div class="legend">
+        <span><i class="l-crop"></i>Rogné (appareil sélectionné)</span>
+        <span><i class="l-ui"></i>Couvert par l'UI</span>
+        <span><i class="l-safe"></i>Zone sûre : texte &amp; logos</span>
+      </div>
+      <p class="map-note" id="mapNote"></p>
+    </section>
+
+    <!-- APPLE MUSIC -->
+    <section class="view" id="view-apple">
+      <div class="apple-chips">
+        <span class="chip">3:4 · 2048×2732 (mobile)</span>
+        <span class="chip">1:1 · 3840×3840 (bureau · iPad · TV)</span>
+        <span class="chip">15–35 s · loop</span>
+        <span class="chip">ProRes / H.264</span>
+        <span class="chip">sans audio</span>
+        <span class="chip">albums / EP</span>
+      </div>
+
+      <div class="seg" id="appleSeg">
+        <button class="active" data-fmt="3:4">3:4 · mobile</button>
+        <button data-fmt="1:1">1:1 · bureau / TV</button>
+      </div>
+
+      <!-- iPhone Now Playing (3:4) -->
+      <div class="aframe show" id="aframe-mobile">
+        <div class="aphone">
+          <video class="bg" muted loop playsinline></video>
+          <div class="scrim"></div>
+          <div class="acard">
+            <video class="v" muted loop playsinline></video>
+            <div class="aph">Pochette animée 3:4<br>(recadrée depuis ta source)</div>
+          </div>
+          <div class="aui">
+            <div class="grabber"></div>
+            <div class="ameta">
+              <div class="att">
+                <div class="at-t" id="ap-t">Nom du morceau</div>
+                <div class="at-a" id="ap-a">Elisalien</div>
+              </div>
+              <div class="amore">
+                <svg width="60%" height="60%" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+              </div>
+            </div>
+            <div class="ascrub"><div class="ln"><i></i><b></b></div><div class="t"><span>1:14</span><span>-2:03</span></div></div>
+            <div class="atrans">
+              <svg width="9%" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+              <svg class="pp" width="11%" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.4v14H7zm6.6 0H17v14h-3.4z"/></svg>
+              <svg width="9%" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6v12l8.5-6z"/></svg>
+            </div>
+            <div class="avol">
+              <svg width="5%" viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h3l4 4V5L7 9H4z"/></svg>
+              <span class="vl"><i></i></span>
+              <svg width="6.5%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9v6h3l4 4V5L7 9H4z" fill="currentColor" stroke="none"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12"/></svg>
+            </div>
+            <div class="abottom">
+              <svg width="6%" viewBox="0 0 24 24" fill="currentColor"><path d="M5 7h5v4H7v2H5V7zm9 0h5v4h-3v2h-2V7z"/></svg>
+              <svg width="6%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M6 17h12l-6 5z"/><rect x="3" y="4" width="18" height="11" rx="2"/></svg>
+              <svg width="6%" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h10"/></svg>
+            </div>
+            <div class="ahome"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Desktop / iPad / TV (1:1) -->
+      <div class="aframe" id="aframe-desk">
+        <div class="adesk">
+          <video class="bg" muted loop playsinline></video>
+          <div class="scrim"></div>
+          <div class="wm">Apple Music</div>
+          <div class="sq">
+            <video class="v" muted loop playsinline></video>
+            <div class="aph">Pochette animée 1:1</div>
+          </div>
+          <div class="dt" id="ap-t2">Nom du morceau</div>
+          <div class="da" id="ap-a2">Elisalien</div>
+          <div class="dctrl">
+            <svg width="4%" viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6 8.5 6V6z"/></svg>
+            <svg width="5%" viewBox="0 0 24 24" fill="currentColor"><path d="M7 5h3.4v14H7zm6.6 0H17v14h-3.4z"/></svg>
+            <svg width="4%" viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zM6 6v12l8.5-6z"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <div class="readout" id="appleOut" style="max-width:480px"></div>
+      <div class="apple-note">Apple Music anime la <b>pochette</b>, pas un fond plein écran. La 1<sup>re</sup> image doit être identique à la pochette statique, et la boucle ne doit montrer aucune coupure. Mimer l'interface Apple Music dans l'artwork est interdit.</div>
+    </section>
+  </main>
+</div>
+
+<footer>
+  <span>Spotify : aperçu fidèle de l'écran « À l'écoute ». Apple Music : pochette animée (Motion Artwork), pas de fond plein écran. Positions exactes variables selon la version de l'app.</span>
+  <span><code>cover</code> = remplissage avec recadrage. Spotify rogne les côtés (&gt; 9:16) ; Apple recadre la hauteur (3:4 / 1:1).</span>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+  const $ = s => document.querySelector(s);
+  const FRAME_AR = 0.5625;      // 1080/1920
+  const AR_MIN   = 0.4282;      // worst-case target (21:9) = most cropping
+  const SAFE_INSET_FRAC = (1 - AR_MIN/FRAME_AR) / 2;        // each side, fraction of frame width
+  const SAFE_INSET_PX   = Math.round(SAFE_INSET_FRAC * 1080); // 129
+  const UI_TOP = 230, UI_BOT = 1152;  // px in 1920-tall frame (12% / 60%)
+
+  const phone = $("#phone");
+  const vid = $("#vid"), mapVid = $("#mapVid");
+  const placeholder = $("#placeholder"), mapPh = $("#mapPh");
+  const allVids = () => document.querySelectorAll("video");
+  let videoURL = null, artURL = null;
+
+  /* ----- Media ----- */
+  $("#vidInput").addEventListener("change", e=>{
+    const f = e.target.files[0]; if(!f) return;
+    if(videoURL) URL.revokeObjectURL(videoURL);
+    videoURL = URL.createObjectURL(f);
+    allVids().forEach(v=>{ v.src = videoURL; v.play().catch(()=>{}); });
+    document.querySelectorAll(".placeholder,.ph,.aph").forEach(el=>el.style.display="none");
+    $("#vidName").textContent = f.name; $("#vidUp").classList.add("has-file");
+    setPlay(true);
+  });
+  $("#artInput").addEventListener("change", e=>{
+    const f = e.target.files[0]; if(!f) return;
+    if(artURL) URL.revokeObjectURL(artURL);
+    artURL = URL.createObjectURL(f);
+    $("#miniArt").src = artURL; $("#artName").textContent = f.name;
+    $("#artUp").classList.add("has-file");
+    document.querySelectorAll(".acard .aph, .adesk .sq .aph").forEach(el=>{
+      el.style.backgroundImage = "url("+artURL+")";
+      el.style.backgroundSize = "cover";
+      el.style.backgroundPosition = "center";
+      el.textContent = "";
+    });
+  });
+
+  /* ----- Text ----- */
+  const bindText = (id, ...t)=>{ const el=$(id);
+    const upd=()=>t.forEach(x=>$(x).textContent = el.value || " ");
+    el.addEventListener("input",upd); upd(); };
+  bindText("#titleIn","#ttlOut","#miniTtl","#ap-t","#ap-t2");
+  bindText("#artistIn","#artOut","#miniArt2","#ap-a","#ap-a2");
+  const ctxIn=$("#ctxIn");
+  const updCtx=()=>{ const p=ctxIn.value.split("·");
+    $("#ctxK").textContent=(p[0]||"À l'écoute").trim().toUpperCase();
+    $("#ctxV").textContent=(p[1]||"").trim()||"—"; };
+  ctxIn.addEventListener("input",updCtx); updCtx();
+
+  /* ----- Device / aspect ----- */
+  const deviceSel=$("#deviceSel"), arRange=$("#arRange"),
+        ratioLbl=$("#ratioLbl"), cropOut=$("#cropOut");
+
+  function arToRatio(ar){ return (9/ar).toFixed(1).replace(/\.0$/,"") + ":9"; }
+
+  function applyAR(ar){
+    ar = Math.min(FRAME_AR, Math.max(AR_MIN, ar));
+    phone.style.setProperty("--ar", ar);
+    ratioLbl.textContent = arToRatio(ar);
+
+    // crop of THIS device (relative to frame)
+    const visFrac = ar / FRAME_AR;
+    const cropFrac = Math.max(0, 1 - visFrac);
+    const eachPx = Math.round(cropFrac/2 * 1080);
+
+    // safe guide on phone = worst-case band mapped onto this screen
+    const safeInsetScreen = Math.max(0, (ar - AR_MIN) / (2*ar)) * 100;
+    const sg = $("#safeGuide");
+    sg.style.left = safeInsetScreen + "%";
+    sg.style.right = safeInsetScreen + "%";
+
+    // readout
+    if(cropFrac < 0.001){
+      cropOut.innerHTML = "<b>Aucun rognage</b> sur cet appareil (9:16 exact).<br>"+
+        "Zone sûre tous appareils : bande centrale de <span class='hl-safe'>822 px</span> "+
+        "(≈ "+SAFE_INSET_PX+" px de marge / côté).";
+    } else {
+      cropOut.innerHTML =
+        "Cet appareil rogne <span class='hl-crop'>"+(cropFrac*100).toFixed(1)+"%</span> "+
+        "(≈ <span class='hl-crop'>"+eachPx+" px</span> / côté sur 1080).<br>"+
+        "Zone sûre tous appareils : <span class='hl-safe'>822 px</span> au centre "+
+        "(garde-y titres &amp; logos).";
+    }
+    updateMap(ar);
+  }
+
+  function updateMap(ar){
+    const cropPx = Math.round((1 - ar/FRAME_AR)/2 * 1080);
+    const rightX = 1080 - cropPx;
+    $("#m-cropL").setAttribute("width", cropPx);
+    $("#m-cropR").setAttribute("x", rightX);
+    $("#m-cropR").setAttribute("width", cropPx);
+    $("#m-cropLine-l").setAttribute("x1", cropPx); $("#m-cropLine-l").setAttribute("x2", cropPx);
+    $("#m-cropLine-r").setAttribute("x1", rightX); $("#m-cropLine-r").setAttribute("x2", rightX);
+
+    const note = (cropPx < 1)
+      ? "Ratio 9:16 exact : rien n'est rogné. Les bandes claires = zones recouvertes par l'UI de Spotify (haut ≈ 12 %, bas ≈ 40 %). Reste dans le rectangle vert."
+      : "Sur cet appareil, "+cropPx+" px sont coupés de chaque côté (rose). Le rectangle vert = visible sur tous les appareils ET libre de l'UI : place-y tout texte ou logo important.";
+    $("#mapNote").textContent = note;
+  }
+
+  deviceSel.addEventListener("change", ()=>{
+    if(deviceSel.value==="custom"){ applyAR(parseFloat(arRange.value)); return; }
+    const ar=parseFloat(deviceSel.value); arRange.value=ar; applyAR(ar);
+  });
+  arRange.addEventListener("input", ()=>{ deviceSel.value="custom"; applyAR(parseFloat(arRange.value)); });
+
+  /* ----- Toggles ----- */
+  const tgAttr=(id,attr)=>{ const el=$(id);
+    const upd=()=>phone.setAttribute(attr, el.checked?"1":"0");
+    el.addEventListener("change",upd); upd(); };
+  tgAttr("#t-scrim","data-scrim"); tgAttr("#t-top","data-top");
+  tgAttr("#t-meta","data-meta"); tgAttr("#t-prog","data-prog");
+  tgAttr("#t-trans","data-trans"); tgAttr("#t-bottom","data-bottom");
+
+  // safe toggle: phone guide + map safe group
+  const tSafe=$("#t-safe");
+  const updSafe=()=>{ phone.setAttribute("data-safe", tSafe.checked?"1":"0");
+    $("#m-safeGrp").style.display = tSafe.checked?"":"none"; };
+  tSafe.addEventListener("change",updSafe); updSafe();
+
+  // crop toggle: map crop overlay only
+  const tCrop=$("#t-crop");
+  const updCrop=()=>{ const d=tCrop.checked?"":"none";
+    $("#m-cropL").style.display=d; $("#m-cropR").style.display=d;
+    $("#m-cropLine-l").style.display=d; $("#m-cropLine-r").style.display=d; };
+  tCrop.addEventListener("change",updCrop); updCrop();
+
+  /* ----- Tabs ----- */
+  document.querySelectorAll(".tab").forEach(t=>{
+    t.addEventListener("click", ()=>{
+      document.querySelectorAll(".tab").forEach(x=>x.classList.remove("active"));
+      document.querySelectorAll(".view").forEach(x=>x.classList.remove("active"));
+      t.classList.add("active"); $("#view-"+t.dataset.view).classList.add("active");
+    });
+  });
+
+  /* ----- Playback ----- */
+  let playing=true;
+  function setPlay(p){ playing=p;
+    $("#playLbl").textContent=p?"Pause":"Lecture";
+    $("#playIco").innerHTML=p?'<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>'; }
+  $("#playBtn").addEventListener("click", ()=>{
+    if(playing){ allVids().forEach(v=>v.pause()); setPlay(false); }
+    else { allVids().forEach(v=>v.play().catch(()=>{})); setPlay(true); }
+  });
+
+  /* ----- Export visible (cover-cropped) frame ----- */
+  $("#exportBtn").addEventListener("click", ()=>{
+    if(!videoURL || !vid.videoWidth){ alert("Charge d'abord une vidéo."); return; }
+    const ar = parseFloat(phone.style.getPropertyValue("--ar")) || 0.4613;
+    const vw = vid.videoWidth, vh = vid.videoHeight;
+    const outH = vh, outW = Math.round(vh * ar);
+    const srcW = Math.min(vw, Math.round(vh * ar));   // central band actually shown
+    const sx = (vw - srcW)/2;
+    const c = document.createElement("canvas"); c.width=outW; c.height=outH;
+    const ctx = c.getContext("2d");
+    ctx.drawImage(vid, sx, 0, srcW, vh, 0, 0, outW, outH);
+    if(phone.getAttribute("data-safe")==="1"){
+      const insetX = Math.max(0, (ar-AR_MIN)/(2*ar)) * outW;
+      ctx.strokeStyle="#1ed760"; ctx.lineWidth=Math.max(3, outW*0.006); ctx.setLineDash([22,16]);
+      ctx.strokeRect(insetX, outH*0.12, outW-2*insetX, outH*0.48);
+    }
+    const a=document.createElement("a");
+    a.download="canvas-preview-"+arToRatio(ar).replace(":","x")+".png";
+    a.href=c.toDataURL("image/png"); a.click();
+  });
+
+  /* ----- Apple Music format toggle + crop readout ----- */
+  const APPLE_FMT = {
+    "3:4": { ar:0.75, dims:"2048 × 2732 px", dev:"iPhone (mobile)" },
+    "1:1": { ar:1.0,  dims:"3840 × 3840 px", dev:"Mac · iPad · Apple TV" }
+  };
+  function appleReadout(fmt){
+    const a = APPLE_FMT[fmt];
+    // center-crop a 9:16 (1080×1920) source into target aspect (cover)
+    const visH = Math.round(1080 / a.ar);            // visible source height
+    const cropEach = Math.max(0, Math.round((1920 - visH)/2));
+    const pct = ((Math.max(0,1920-visH))/1920*100).toFixed(0);
+    $("#appleOut").innerHTML =
+      "<b>"+fmt+"</b> — "+a.dims+" · "+a.dev+".<br>"+
+      "Depuis ta source <b>9:16</b>, recadrage de <span class='hl-crop'>~"+cropEach+" px</span> "+
+      "en haut <i>et</i> en bas (<span class='hl-crop'>"+pct+"%</span> de hauteur perdue).<br>"+
+      "→ Mieux vaut recomposer une version dédiée que recadrer le Canvas.";
+  }
+  function setAppleFmt(fmt){
+    document.querySelectorAll("#appleSeg button").forEach(b=>b.classList.toggle("active", b.dataset.fmt===fmt));
+    $("#aframe-mobile").classList.toggle("show", fmt==="3:4");
+    $("#aframe-desk").classList.toggle("show", fmt==="1:1");
+    appleReadout(fmt);
+  }
+  document.querySelectorAll("#appleSeg button").forEach(b=>{
+    b.addEventListener("click", ()=>setAppleFmt(b.dataset.fmt));
+  });
+  setAppleFmt("3:4");
+
+  applyAR(0.4613);
+})();
+</script>
+</body>
+</html>
