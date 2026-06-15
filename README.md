@@ -1,4 +1,4 @@
-# Canvas Preview · Spotify
+# Loopframe
 
 Aperçu **pixel-perfect** pour vos visuels **Spotify Canvas** : chargez votre vidéo, visualisez-la dans une maquette de téléphone fidèle à l'app Spotify, et vérifiez le rognage par rapport au cadre de référence **1080 × 1920 (9:16)** avant publication.
 
@@ -29,7 +29,7 @@ Ouvrez simplement `index.html` dans un navigateur moderne. Aucune étape de buil
 1. Créez un dépôt GitHub et poussez ce dossier :
    ```bash
    git add .
-   git commit -m "Canvas Preview · Spotify"
+   git commit -m "Loopframe"
    git branch -M main
    git remote add origin https://github.com/<votre-utilisateur>/<votre-depot>.git
    git push -u origin main
