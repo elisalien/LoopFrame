@@ -105,6 +105,7 @@
     border-radius:8px;padding:11px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--sans);
     transition:transform .08s, filter .15s, background .15s}
   .btn:active{transform:translateY(1px)}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
   .btn-accent{background:var(--accent);color:#04130a}
   .btn-accent:hover{filter:brightness(1.08)}
   .btn-ghost{background:var(--panel-2);color:var(--txt);border:1px solid var(--line)}
@@ -116,6 +117,27 @@
   .readout b{color:var(--txt)}
   .readout .hl-crop{color:var(--crop)}
   .readout .hl-safe{color:var(--safe)}
+
+  /* ---------- File checks ---------- */
+  .checks{background:var(--panel);border:1px solid var(--line-soft);border-radius:8px;padding:9px 11px;
+    font-size:11.5px;color:var(--txt-dim)}
+  .checks .ck-empty{margin:0;color:var(--txt-faint)}
+  .checks h4{margin:8px 0 5px;font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--txt-faint);font-weight:600}
+  .checks h4:first-child{margin-top:0}
+  .checks ul{list-style:none;margin:0;padding:0;display:grid;gap:4px}
+  .checks li{display:flex;gap:8px;align-items:baseline;line-height:1.35}
+  .checks li::before{flex:0 0 auto;font-family:var(--mono);font-weight:700;width:12px;text-align:center}
+  .checks li.ok::before{content:"✓";color:var(--safe)}
+  .checks li.warn::before{content:"!";color:#ffb547}
+  .checks li.bad::before{content:"✕";color:var(--crop)}
+  .checks li.info::before{content:"·";color:var(--txt-faint)}
+  .checks li b{color:var(--txt);font-weight:600}
+  body.dragging .upload#vidUp{border-color:var(--accent);background:#10241a}
+  body.dragging::after{content:"Dépose ton fichier";position:fixed;inset:12px;border:2px dashed var(--accent);
+    border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;
+    color:var(--accent);background:rgba(10,10,11,.75);pointer-events:none;z-index:50}
+  video.still{background-repeat:no-repeat;background-position:center}
 
   /* ---------- Stage ---------- */
   .stage{padding:22px;display:flex;flex-direction:column;align-items:center;gap:16px;min-width:0}
@@ -307,9 +329,10 @@
   <div class="chips">
     <span class="chip">1080 × 1920</span>
     <span class="chip">9:16</span>
+    <span class="chip">720p à 1080p</span>
     <span class="chip">3–8 s · loop</span>
-    <span class="chip">MP4 / WebM</span>
-    <span class="chip">&lt; 50 Mo</span>
+    <span class="chip">MP4 ou JPG</span>
+    <span class="chip">sans son</span>
   </div>
 </header>
 
@@ -322,14 +345,19 @@
       <span class="label">Média</span>
       <label class="upload" id="vidUp">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
-        <span class="u-txt" id="vidName">Charger une vidéo (MP4/WebM)</span>
-        <input type="file" id="vidInput" accept="video/mp4,video/webm,video/*">
+        <span class="u-txt" id="vidName">Charger le Canvas (MP4 ou JPG) — ou glisser-déposer</span>
+        <input type="file" id="vidInput" accept="video/*,image/jpeg,image/png,.mov">
       </label>
       <label class="upload" style="margin-top:8px" id="artUp">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></svg>
         <span class="u-txt" id="artName">Pochette d'album (optionnel)</span>
         <input type="file" id="artInput" accept="image/*">
       </label>
+    </div>
+
+    <div class="group">
+      <span class="label">Vérification du fichier</span>
+      <div class="checks" id="checks"><p class="ck-empty">Charge un fichier pour vérifier durée, format, ratio et boucle.</p></div>
     </div>
 
     <div class="group">
@@ -409,7 +437,7 @@
         <div class="placeholder" id="placeholder">
           <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m22 8-6 4 6 4V8Z"/><rect x="2" y="6" width="14" height="12" rx="2"/></svg>
           <p>Charge ta vidéo Canvas</p>
-          <small>1080 × 1920 · 9:16 · boucle 3–8 s</small>
+          <small>1080 × 1920 · 9:16 · boucle 3–8 s · MP4 ou JPG</small>
         </div>
 
         <div class="safeguide" id="safeGuide"><span class="tag">ZONE SÛRE</span></div>
@@ -519,7 +547,8 @@
         <span class="chip">3:4 · 2048×2732 (mobile)</span>
         <span class="chip">1:1 · 3840×3840 (bureau · iPad · TV)</span>
         <span class="chip">15–35 s · loop</span>
-        <span class="chip">ProRes / H.264</span>
+        <span class="chip">ProRes 422 / 4444 · .mov</span>
+        <span class="chip">24–30 i/s</span>
         <span class="chip">sans audio</span>
         <span class="chip">albums / EP</span>
       </div>
@@ -617,17 +646,129 @@
   const placeholder = $("#placeholder"), mapPh = $("#mapPh");
   const allVids = () => document.querySelectorAll("video");
   let videoURL = null, artURL = null;
+  let stillImg = null;          // set when the Canvas is a still image (JPG)
 
   /* ----- Media ----- */
-  $("#vidInput").addEventListener("change", e=>{
-    const f = e.target.files[0]; if(!f) return;
+  function loadMedia(f){
+    if(!f) return;
     if(videoURL) URL.revokeObjectURL(videoURL);
     videoURL = URL.createObjectURL(f);
-    allVids().forEach(v=>{ v.src = videoURL; v.play().catch(()=>{}); });
+    const isImage = f.type.startsWith("image/");
+    stillImg = null;
+    allVids().forEach(v=>{
+      v.classList.toggle("still", isImage);
+      if(isImage){
+        v.pause(); v.removeAttribute("src"); v.load();
+        v.style.backgroundImage = "url("+videoURL+")";
+        v.style.backgroundSize = getComputedStyle(v).objectFit === "contain" ? "contain" : "cover";
+      } else {
+        v.style.backgroundImage = "";
+        v.src = videoURL; v.play().catch(()=>{});
+      }
+    });
     document.querySelectorAll(".placeholder,.ph,.aph").forEach(el=>el.style.display="none");
     $("#vidName").textContent = f.name; $("#vidUp").classList.add("has-file");
-    setPlay(true);
+    $("#playBtn").disabled = isImage;
+    setPlay(!isImage);
+    if(isImage){
+      const img = new Image();
+      img.onload = ()=>{ stillImg = img; runChecks(f, {w:img.naturalWidth, h:img.naturalHeight, dur:0, still:true}); };
+      img.src = videoURL;
+    } else {
+      checkVideo(f, videoURL);
+    }
+  }
+  $("#vidInput").addEventListener("change", e=>loadMedia(e.target.files[0]));
+
+  // drag & drop anywhere on the page
+  let dragDepth = 0;
+  window.addEventListener("dragenter", e=>{ e.preventDefault(); dragDepth++; document.body.classList.add("dragging"); });
+  window.addEventListener("dragleave", ()=>{ if(--dragDepth<=0){ dragDepth=0; document.body.classList.remove("dragging"); } });
+  window.addEventListener("dragover", e=>e.preventDefault());
+  window.addEventListener("drop", e=>{
+    e.preventDefault(); dragDepth=0; document.body.classList.remove("dragging");
+    const f = e.dataTransfer.files[0]; if(f) loadMedia(f);
   });
+
+  /* ----- File checks (official Spotify Canvas / Apple Motion Artwork specs) ----- */
+  const fmtSize = b => b > 1048576 ? (b/1048576).toFixed(1)+" Mo" : Math.round(b/1024)+" Ko";
+  const ext = f => (f.name.split(".").pop() || "").toLowerCase();
+
+  function checkVideo(f, url){
+    const probe = document.createElement("video");
+    probe.muted = true; probe.preload = "auto"; probe.src = url;
+    probe.addEventListener("loadedmetadata", ()=>{
+      const info = {w:probe.videoWidth, h:probe.videoHeight, dur:probe.duration, still:false, loop:null};
+      runChecks(f, info);
+      measureLoop(probe).then(d=>{ info.loop = d; runChecks(f, info); }).catch(()=>{});
+    }, {once:true});
+    probe.addEventListener("error", ()=>{
+      $("#checks").innerHTML = "<ul><li class='bad'>Le navigateur ne lit pas ce fichier"+
+        (ext(f)==="mov" ? " (ProRes .mov : lisible surtout dans Safari — exporte une copie MP4 pour l'aperçu)." : ".")+
+        "</li><li class='info'>"+fmtSize(f.size)+"</li></ul>";
+    }, {once:true});
+  }
+
+  // Mean pixel difference between first and last frame (0 = seamless loop)
+  function measureLoop(v){
+    const W = 48, H = 85;
+    const c = document.createElement("canvas"); c.width = W; c.height = H;
+    const ctx = c.getContext("2d", {willReadFrequently:true});
+    const grab = t => new Promise((res, rej)=>{
+      const to = setTimeout(()=>rej(new Error("seek timeout")), 4000);
+      v.addEventListener("seeked", ()=>{ clearTimeout(to);
+        ctx.drawImage(v, 0, 0, W, H); res(ctx.getImageData(0,0,W,H).data); }, {once:true});
+      v.currentTime = t;
+    });
+    return grab(0).then(a => grab(Math.max(0, v.duration - 0.04)).then(b=>{
+      let s = 0; for(let i=0;i<a.length;i+=4) s += Math.abs(a[i]-b[i]) + Math.abs(a[i+1]-b[i+1]) + Math.abs(a[i+2]-b[i+2]);
+      return s / (a.length/4*3*255) * 100;
+    }));
+  }
+
+  function runChecks(f, {w, h, dur, still, loop}){
+    const e = ext(f), ar = w/h, L = [], A = [];
+    const li = (arr, cls, txt) => arr.push("<li class='"+cls+"'>"+txt+"</li>");
+    const near = (x, y) => Math.abs(x - y) < 0.01;
+
+    // ---- Spotify Canvas: 3–8 s, 9:16, 720–1080 px tall, MP4 or JPG, no sound
+    li(L, (e==="mp4"||e==="jpg"||e==="jpeg") ? "ok" : "bad",
+      "Format <b>."+e+"</b>"+((e==="mp4"||e==="jpg"||e==="jpeg") ? "" : " — Spotify n'accepte que MP4 ou JPG"));
+    li(L, near(ar, 9/16) ? "ok" : "bad", "<b>"+w+" × "+h+"</b>"+(near(ar, 9/16) ? " · 9:16" : " — pas en 9:16, sera rejeté ou recadré"));
+    // "720px–1080px" = 720p to 1080p, i.e. 720×1280 up to 1080×1920
+    li(L, (w>=720 && w<=1080) ? "ok" : (w>1080 ? "warn" : "bad"),
+      "Définition <b>"+(w>=720 && w<=1080 ? "OK" : w>1080 ? "trop grande" : "trop petite")+"</b>"+
+      (w<720 ? " — minimum 720 × 1280" : w>1080 ? " — maximum 1080 × 1920, réexporte" : " (720p à 1080p)"));
+    if(still){
+      li(L, "info", "Image fixe : Canvas statique, sans animation");
+    } else {
+      const okDur = dur>=3 && dur<=8;
+      li(L, okDur ? "ok" : "bad", "Durée <b>"+dur.toFixed(2)+" s</b>"+(okDur ? "" : " — doit faire 3 à 8 s"));
+      if(loop != null){
+        li(L, loop<4 ? "ok" : loop<10 ? "warn" : "bad",
+          "Raccord de boucle : écart <b>"+loop.toFixed(1)+" %</b> entre 1<sup>re</sup> et dernière image"+
+          (loop<4 ? "" : loop<10 ? " — saut visible possible" : " — coupure nette à chaque boucle"));
+      }
+      li(L, "info", "Le son est ignoré par Spotify");
+    }
+    li(L, "info", "Poids "+fmtSize(f.size)+(still ? "" : " · vise ~15 Mb/s en 1080p"));
+
+    // ---- Apple Music Motion Artwork: 3:4 2048×2732 or 1:1 3840×3840, 15–35 s, ProRes .mov
+    const aFmt = near(ar, 3/4) ? "3:4" : near(ar, 1) ? "1:1" : null;
+    if(aFmt){
+      const want = aFmt==="3:4" ? [2048,2732] : [3840,3840];
+      li(A, (w===want[0] && h===want[1]) ? "ok" : "warn",
+        "<b>"+aFmt+"</b> "+w+" × "+h+((w===want[0] && h===want[1]) ? "" : " — attendu "+want[0]+" × "+want[1]));
+    } else {
+      li(A, "warn", "Ratio non Apple : il faut une version 3:4 <i>et</i> une version 1:1");
+    }
+    if(!still){
+      li(A, (dur>=15 && dur<=35) ? "ok" : "bad", "Durée "+dur.toFixed(1)+" s"+((dur>=15 && dur<=35) ? "" : " — Apple demande 15 à 35 s"));
+    }
+    li(A, e==="mov" ? "warn" : "bad", e==="mov" ? "<b>.mov</b> : vérifie codec ProRes 422/4444, 45–100 Mb/s" : "Apple demande du ProRes en .mov");
+
+    $("#checks").innerHTML = "<h4>Spotify Canvas</h4><ul>"+L.join("")+"</ul><h4>Apple Music</h4><ul>"+A.join("")+"</ul>";
+  }
   $("#artInput").addEventListener("change", e=>{
     const f = e.target.files[0]; if(!f) return;
     if(artURL) URL.revokeObjectURL(artURL);
@@ -747,22 +888,33 @@
   function setPlay(p){ playing=p;
     $("#playLbl").textContent=p?"Pause":"Lecture";
     $("#playIco").innerHTML=p?'<path d="M6 5h4v14H6zm8 0h4v14h-4z"/>':'<path d="M8 5v14l11-7z"/>'; }
-  $("#playBtn").addEventListener("click", ()=>{
+  function togglePlay(){
+    if(stillImg || !videoURL) return;
     if(playing){ allVids().forEach(v=>v.pause()); setPlay(false); }
     else { allVids().forEach(v=>v.play().catch(()=>{})); setPlay(true); }
+  }
+  $("#playBtn").addEventListener("click", togglePlay);
+  // Space = play/pause (unless typing in a field)
+  document.addEventListener("keydown", e=>{
+    if(e.code!=="Space" || /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(e.target.tagName)) return;
+    e.preventDefault(); togglePlay();
   });
 
   /* ----- Export visible (cover-cropped) frame ----- */
   $("#exportBtn").addEventListener("click", ()=>{
-    if(!videoURL || !vid.videoWidth){ alert("Charge d'abord une vidéo."); return; }
+    const src = stillImg || vid;
+    const vw = stillImg ? stillImg.naturalWidth : vid.videoWidth;
+    const vh = stillImg ? stillImg.naturalHeight : vid.videoHeight;
+    if(!videoURL || !vw){ alert("Charge d'abord une vidéo ou une image."); return; }
     const ar = parseFloat(phone.style.getPropertyValue("--ar")) || 0.4613;
-    const vw = vid.videoWidth, vh = vid.videoHeight;
-    const outH = vh, outW = Math.round(vh * ar);
-    const srcW = Math.min(vw, Math.round(vh * ar));   // central band actually shown
-    const sx = (vw - srcW)/2;
+    // object-fit: cover — keep the central region matching the screen ratio
+    let srcW = vw, srcH = vh;
+    if(vw/vh > ar) srcW = Math.round(vh * ar); else srcH = Math.round(vw / ar);
+    const sx = (vw - srcW)/2, sy = (vh - srcH)/2;
+    const outW = srcW, outH = srcH;
     const c = document.createElement("canvas"); c.width=outW; c.height=outH;
     const ctx = c.getContext("2d");
-    ctx.drawImage(vid, sx, 0, srcW, vh, 0, 0, outW, outH);
+    ctx.drawImage(src, sx, sy, srcW, srcH, 0, 0, outW, outH);
     if(phone.getAttribute("data-safe")==="1"){
       const insetX = Math.max(0, (ar-AR_MIN)/(2*ar)) * outW;
       ctx.strokeStyle="#1ed760"; ctx.lineWidth=Math.max(3, outW*0.006); ctx.setLineDash([22,16]);
